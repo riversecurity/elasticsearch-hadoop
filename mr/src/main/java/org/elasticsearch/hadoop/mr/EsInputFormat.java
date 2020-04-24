@@ -205,7 +205,7 @@ public class EsInputFormat<K, V> extends InputFormat<K, V> implements org.apache
         }
 
         @Override
-        public void close() throws IOException {
+        public synchronized void close() throws IOException {
             try {
                 if (log.isDebugEnabled()) {
                     log.debug(String.format("Closing RecordReader for [%s]", esSplit));

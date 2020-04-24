@@ -66,7 +66,7 @@ public class ScrollQuery implements Iterator<Object>, Closeable, StatsAware {
     }
 
     @Override
-    public void close() {
+    public synchronized void close() {
         if (!closed) {
             closed = true;
             finished = true;
@@ -88,14 +88,16 @@ public class ScrollQuery implements Iterator<Object>, Closeable, StatsAware {
 
         if (!initialized) {
             initialized = true;
-            
+
             try {
-                Scroll scroll = repository.scroll(query, body, reader);
-                // size is passed as a limit (since we can't pass it directly into the request) - if it's not specified (<1) just scroll the whole index
-                size = (size < 1 ? scroll.getTotalHits() : size);
-                scrollId = scroll.getScrollId();
-                batch = scroll.getHits();
-                finished = scroll.isConcluded();
+                synchronized (this) {
+                    Scroll scroll = repository.scroll(query, body, reader);
+                    // size is passed as a limit (since we can't pass it directly into the request) - if it's not specified (<1) just scroll the whole index
+                    size = (size < 1 ? scroll.getTotalHits() : size);
+                    scrollId = scroll.getScrollId();
+                    batch = scroll.getHits();
+                    finished = scroll.isConcluded();
+                }
             } catch (IOException ex) {
                 throw new EsHadoopIllegalStateException(String.format("Cannot create scroll for query [%s/%s]", query, body), ex);
             }
@@ -112,10 +114,12 @@ public class ScrollQuery implements Iterator<Object>, Closeable, StatsAware {
             }
 
             try {
-                Scroll scroll = repository.scroll(scrollId, reader);
-                scrollId = scroll.getScrollId();
-                batch = scroll.getHits();
-                finished = scroll.isConcluded();
+                synchronized (this) {
+                    Scroll scroll = repository.scroll(scrollId, reader);
+                    scrollId = scroll.getScrollId();
+                    batch = scroll.getHits();
+                    finished = scroll.isConcluded();
+                }
             } catch (IOException ex) {
                 throw new EsHadoopIllegalStateException("Cannot retrieve scroll [" + scrollId + "]", ex);
             }
